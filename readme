@@ -1,1 +1,39 @@
 Kubernetes setup using kubeadmn
+
+How to backup the Etcd & Restore it
+-----------------------------------
+
+A) Taking backup.
+
+1) Check backup Command flag which you need to include in the command:
+$ ETCDCTL_API=3 etcdctl snapshot backup -h
+
+2) Take a snapshot of the etcd datastore using etcdctl:
+$ ETCDCTL_API=3 etcdctl snapshot save <snapshot_name> --cacert <peer-trusted-ca-file> --cert <cert-file> --key <key-file>   // Check these values in etcd.yaml
+Example:
+$ ETCDCTL_API=3 etcdctl snapshot save snapshot.db --cacert /etc/kubernetes/pki/etcd/ca.crt --cert /etc/kubernetes/pki/etcd/server.crt --key /etc/kubernetes/pki/etcd/server.key
+
+3) View that the snapshot was successful:
+$ ETCDCTL_API=3 etcdctl snapshot status --write-out=table <snapshot_name>
+Example:
+$ ETCDCTL_API=3 etcdctl snapshot status --write-out=table snapshot.db
+
+B) Restoring Etcd From Snapshot & Verify:
+Note: It restore the state of the cluster when the backup was taken. It will not restore the work which was done after the backup taken.
+1) Check restore Command flag which you need to include in command:
+$ ETCDCTL_API=3 etcdctl snapshot restore -h
+
+2) To restore we will have to first delete the present ETCD content. So lets look into and grab all the details we need for the restore command to execute:
+$ cat /etc/kubernetes/manifests/etcd.yaml
+
+3) Will delete the present content of ETCD and execute the restore command
+$ rm -rf /var/lib/etcd
+$ ETCDCTL_API=3 etcdctl snapshot restore <snapshot_name> --endpoints=https://127.0.0.1:2379 --cacert=<peer-trusted-ca-file> --cert=<cert-file> --key=<key-file> --name=kubeadm-master --data-dir=/var/lib/etcd --initial-cluster=<initial-cluster> --initial-cluster-token=etcd-cluster-1 --initial-advertise-peerurls=<initial-advertise-peer-urls>
+Example: 
+$ ETCDCTL_API=3 etcdctl snapshot restore snapshot.db --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key --name=kubeadm-master --data-dir=/var/lib/etcd --initial-cluster=kubeadmmaster=https://10.0.0.4:2380 --initial-cluster-token=etcd-cluster-1 --initial-advertise-peerurls=https://10.0.0.4:2380
+
+4) Verify that the cluster is back to status of which we had taken the snapshot
+$ kubectl get pods
+
+
+
